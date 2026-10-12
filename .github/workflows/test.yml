@@ -23,7 +23,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --legacy-peer-deps
       - name: Execute native npm and Pi launchers
-        run: node --input-type=module -e "import {capture} from './scripts/lib.mjs'; console.log(capture('npm',['--version'])); console.log(capture('pi',['--version']));"
+        run: npm run verify-launchers
       - run: npm test
       - run: npm run audit
       - name: Bootstrap preview

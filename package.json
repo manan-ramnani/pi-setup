@@ -32,6 +32,7 @@
   "scripts": {
     "test": "node scripts/test.mjs",
     "doctor": "node scripts/doctor.mjs",
+    "verify-launchers": "node --input-type=module -e \"import {capture} from './scripts/lib.mjs'; console.log(capture('npm',['--version'])); console.log(capture('pi',['--version']));\"",
     "audit": "node scripts/audit.mjs",
     "bootstrap": "node scripts/bootstrap.mjs"
   }
