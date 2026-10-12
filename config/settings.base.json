@@ -1,0 +1,7 @@
+{
+  "defaultProvider": "baseten",
+  "defaultModel": "zai-org/GLM-5.2",
+  "defaultTools": [
+    "+codemode"
+  ]
+}

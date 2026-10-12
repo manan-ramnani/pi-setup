@@ -1,0 +1,14 @@
+{
+  "name": "pi-setup-extensions",
+  "private": true,
+  "dependencies": {
+    "pi-agents": "0.26.1",
+    "@diegopetrucci/pi-oracle": "0.1.30",
+    "@tifan/pi-recap": "0.4.8",
+    "@tintinweb/pi-tasks": "0.9.0",
+    "pi-ask-user": "0.16.0",
+    "pi-herdr": "0.1.2",
+    "pi-side-chat": "0.4.0",
+    "pi-markdown-preview": "0.21.3"
+  }
+}

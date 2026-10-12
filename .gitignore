@@ -1,0 +1,17 @@
+.local/
+**/.pi-setup-backups/
+**/.pi-setup-skills/
+**/.pi-setup-stage-*/
+node_modules/
+.pi/
+.env
+.env.*
+!.env.example
+**/auth.json
+**/mcp-auth.json
+**/models-store.json
+**/sessions/
+**/__pycache__/
+*.pyc
+.DS_Store
+*.tgz

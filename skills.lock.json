@@ -1,0 +1,47 @@
+{
+  "formatVersion": 1,
+  "skills": [
+    {
+      "name": "remotion-best-practices",
+      "repository": "https://github.com/remotion-dev/skills.git",
+      "commit": "e9d8ecd5685a0ab1291444f5ad0288a64d053155",
+      "path": "skills/remotion",
+      "snapshotSha256": "6c97bacacf5cc339638ad8ea421b496c744630bdcf614ab0d1ea789d61061488",
+      "customization": {
+        "description": "Implement or review Remotion compositions, timing, media, and animation.",
+        "whenToUse": "Use this as the general Remotion entry point. Read the rule files relevant to the composition, timing, media, or animation being changed. Use remotion-video-toolkit for rendering pipelines, server integrations, and parameterised template workflows."
+      }
+    },
+    {
+      "name": "find-skills",
+      "repository": "https://github.com/vercel-labs/skills.git",
+      "commit": "e00ad19cd60863bebbbd944a7035b42cfebd8bae",
+      "path": "skills/find-skills",
+      "snapshotSha256": "738b19132991185cda85974ba1394631644830639db2a38137865824d5ceb107",
+      "override": "config/skill-overrides/find-skills/SKILL.md"
+    },
+    {
+      "name": "animejs",
+      "repository": "https://github.com/bowtiedswan/animejs-skills.git",
+      "commit": "cf2bed8d6654a6cfd02d3ff11b74ff3a7a7631e2",
+      "path": ".",
+      "snapshotSha256": "5f136ca9f62359efbbdee85b59c04669aa8ff6b3706eb49cfa5e0f298239114c",
+      "exclude": ["README.md"]
+    },
+    {
+      "name": "remotion-video-toolkit",
+      "repository": "https://github.com/shreefentsar/remotion-video-toolkit.git",
+      "commit": "81a412e7872f21f4989e4c07f48cc5b494c294a9",
+      "path": ".",
+      "snapshotSha256": "e22e181287f021b83f0d24e25a0f83c16e2642a3939c80a7a136eab47f5a622b",
+      "override": "config/skill-overrides/remotion-video-toolkit/SKILL.md"
+    },
+    {
+      "name": "nanobanana-skill",
+      "repository": "https://github.com/feiskyer/claude-code-settings.git",
+      "commit": "c9ce4d203eb8cfd8faed32e220cb2b99d0b219aa",
+      "path": "skills/nanobanana-skill",
+      "snapshotSha256": "86e4d50ff9a467c29901e7d9867dfab7ced57663e3dbd736b0f998ba2c43b48b"
+    }
+  ]
+}

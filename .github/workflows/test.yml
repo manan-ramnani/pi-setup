@@ -1,0 +1,30 @@
+name: Portable setup tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  offline-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      PI_OFFLINE: "1"
+      PI_SKIP_VERSION_CHECK: "1"
+      PI_TELEMETRY: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts --legacy-peer-deps
+      - name: Execute native npm and Pi launchers
+        run: node --input-type=module -e "import {capture} from './scripts/lib.mjs'; console.log(capture('npm',['--version'])); console.log(capture('pi',['--version']));"
+      - run: npm test
+      - run: npm run audit
+      - name: Bootstrap preview
+        run: node scripts/bootstrap.mjs --dry-run --agent-dir .local/ci-agent
