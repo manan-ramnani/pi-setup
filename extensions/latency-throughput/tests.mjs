@@ -25,10 +25,10 @@ function call({first=1200,duration=1000,output=120,stopReason='stop',identity=id
   now=first+duration;
   return t.finish(msg,1700000000000);
 }
-assert.equal(formatMetrics(t.stats(id)),'— / — | — / — TPS');
+assert.equal(formatMetrics(t.stats(id)),'— / — | — / — E2E TPS');
 let sample=call();
 assert.deepEqual(sample,{...id,ttftMs:1200,generationMs:1000,outputTokens:120,at:1700000000000});
-assert.equal(formatMetrics(t.stats(id)),'1.2s / 1.2s | 120 / 120 TPS');
+assert.equal(formatMetrics(t.stats(id)),'1.2s / 1.2s | 55 / 55 E2E TPS');
 assert.equal(isContentEvent({type:'start'}),false);
 assert.equal(isContentEvent({type:'thinking_start'}),false);
 assert.equal(isContentEvent({type:'text_delta',delta:''}),false);
@@ -41,7 +41,7 @@ now=0; t.arm(); t.begin(); t.started(assistant('toolUse'));
 now=500; t.update(assistant('toolUse'),{type:'toolcall_start',contentIndex:0,partial:{content:[{type:'toolCall',name:''}]}});
 now=900; t.update(assistant('toolUse'),{type:'toolcall_delta',delta:'',contentIndex:0,partial:{content:[{type:'toolCall',name:'no_args_tool'}]}});
 now=1900; assert.equal(t.finish(assistant('toolUse')).ttftMs,900);
-console.log('PASS monotonic TTFT, generation-only TPS, placeholders, non-empty text/thinking/tool content');
+console.log('PASS monotonic TTFT, full-request output TPS, placeholders, non-empty text/thinking/tool content');
 
 const count=t.stats(id).count;
 assert.equal(call({stopReason:'error'}),undefined);
@@ -63,18 +63,18 @@ now=2200; assert.equal(t.finish(assistant()).ttftMs,1200);
 const noUsage=call({output:0});
 assert.equal(summarize([noUsage]).tpsP50,undefined);
 assert.equal(summarize([noUsage]).tpsP95,undefined);
-const zeroDuration=call({duration:0});
+const zeroDuration=call({first:0,duration:0});
 assert.equal(summarize([zeroDuration]).tpsCount,0);
-const mixed=summarize([sample,noUsage,zeroDuration,{...sample,outputTokens:Number.MAX_VALUE,generationMs:Number.MIN_VALUE}]);
+const mixed=summarize([sample,noUsage,zeroDuration,{...sample,ttftMs:0,outputTokens:Number.MAX_VALUE,generationMs:Number.MIN_VALUE}]);
 assert.equal(mixed.count,4);
 assert.equal(mixed.tpsCount,1);
-assert.equal(mixed.tpsP50,120);
-assert.equal(mixed.tpsP95,120);
+assert.equal(mixed.tpsP50,120/2.2);
+assert.equal(mixed.tpsP95,120/2.2);
 assert.equal(call({first:-1}),undefined);
 console.log('PASS failed/aborted/no-content calls excluded, ambiguous warming omitted, identity isolation, unavailable usage/interval');
 
 t.history.clear();
-for(let i=1;i<=60;i++) call({first:i*100,output:i*10});
+for(let i=1;i<=60;i++) call({first:i*100,output:i*10*(1+i/10)});
 assert.equal(t.stats(id).count,WINDOW);
 assert.equal(t.stats(id).p50,3500); // retained samples 11..60, rank 25 = 35
 assert.equal(t.stats(id).p95,5800); // rank 48 = 58
@@ -92,15 +92,22 @@ const noRateWindow=new Telemetry();
 noRateWindow.restore([entry(sample),...Array.from({length:50},()=>entry(noUsage))]);
 assert.equal(noRateWindow.stats(id).count,50);
 assert.equal(noRateWindow.stats(id).tpsCount,0,'TPS uses the same retained call window, not the last 50 valid rates');
-assert.equal(formatMetrics(noRateWindow.stats(id)),'1.2s / 1.2s | — / — TPS');
+assert.equal(formatMetrics(noRateWindow.stats(id)),'1.2s / 1.2s | — / — E2E TPS');
 t.restore([entry(sample),entry({...sample,ttftMs:3500}),{type:'custom',customType:ENTRY,data:{version:1,kind:'sample',sample:{...sample,ttftMs:Infinity}}}]);
-assert.equal(formatMetrics(t.stats(id)),'1.2s / 3.5s | 120 / 120 TPS');
+assert.equal(formatMetrics(t.stats(id)),'1.2s / 3.5s | 27 / 55 E2E TPS');
 t.restore([entry(sample),{type:'custom',customType:ENTRY,data:{version:1,kind:'reset'}},entry({...sample,ttftMs:3500})]);
 assert.equal(t.stats(id).count,1);
 assert.equal(t.stats(id).p50,3500);
 assert.equal(validSample({...sample,outputTokens:NaN}),false);
 assert.equal(validSample({...sample,model:42}),false);
-console.log('PASS rolling nearest-rank p50/p95, per-provider/API/model buckets, restore/branch/reset, validation');
+// Full request denominator includes hidden-reasoning wait; first-content is
+// not a tokenizer event. A single content burst can still have a valid E2E rate.
+assert.equal(summarize([{...sample,ttftMs:9000,generationMs:1000}]).tpsP50,12);
+assert.equal(summarize([{...sample,ttftMs:1000,generationMs:0}]).tpsP50,120);
+assert.equal(summarize([{...sample,ttftMs:0,generationMs:0}]).tpsCount,0);
+assert.equal(summarize([{...sample,ttftMs:Number.MAX_VALUE,generationMs:Number.MAX_VALUE}]).tpsCount,0);
+assert.equal(formatMetrics(summarize([{...sample,ttftMs:9000,generationMs:1000}])), '9.0s / 9.0s | 12 / 12 E2E TPS');
+console.log('PASS rolling nearest-rank p50/p95, full-request denominator, single-burst/overflow, restore/branch/reset');
 
 // Native footer comparison, including every existing token/cache/cost/context
 // field, right-side model/thinking, cwd/git/session name, and /fast status.
@@ -140,12 +147,12 @@ try {
     getRoute:()=>undefined,FooterComponent,visibleWidth,truncateToWidth});
   const baseline=native.render(300);
   const actual=footer.render(300);
-  const suffix=' | 1.2s / 3.5s | 70 / 120 TPS | Fast on';
+  const suffix=' | 1.2s / 3.5s | 27 / 32 E2E TPS | Fast on';
   assert.equal(actual[1].replace(suffix,' '.repeat(visibleWidth(suffix))),baseline[1]);
   assert.equal(actual[0],baseline[0]);
   assert.equal(actual[2],baseline[2]);
   const plain=s=>s.replace(/\x1b\[[0-9;]*m/g,'');
-  assert.match(plain(actual[1]),/↑703k ↓98k R21M CH99\.1% \$3\.621 \(sub\) 10\.4%\/272k \(auto\) \| 1\.2s \/ 3\.5s \| 70 \/ 120 TPS \| Fast on/);
+  assert.match(plain(actual[1]),/↑703k ↓98k R21M CH99\.1% \$3\.621 \(sub\) 10\.4%\/272k \(auto\) \| 1\.2s \/ 3\.5s \| 27 \/ 32 E2E TPS \| Fast on/);
   assert.match(plain(actual[1]),/test-model.*high/);
   assert.equal(plain(actual[2]),'other extension OK');
   assert(!actual.some(line=>plain(line).includes('fast:')),'No duplicate fast status row');
@@ -157,6 +164,13 @@ try {
   assert.equal(fastLabel(footerData),'Fast on','Toggle ON is not a claim that priority service was delivered');
   footerStatuses.set('chatgpt-fast','fast: inactive');
   assert.match(plain(footer.render(300)[1]),/\| Fast on \(inactive\)/);
+  footerStatuses.set('chatgpt-fast','ultrafast: on (requested)');
+  assert.equal(fastLabel(footerData),'Ultra requested');
+  assert.match(plain(footer.render(300)[1]),/\| Ultra requested/);
+  footerStatuses.set('chatgpt-fast','ultrafast: default');
+  assert.equal(fastLabel(footerData),'Ultra requested','Fallback is not falsely labelled delivered Ultra');
+  footerStatuses.set('chatgpt-fast','ultrafast: inactive');
+  assert.equal(fastLabel(footerData),'Ultra requested (inactive)');
   footerStatuses.set('chatgpt-fast','fast: on (requested)');
   footerStatuses.delete('other-status');
   assert.equal(footer.render(300).length,2,'No empty secondary status row when Fast is the only status');
@@ -210,7 +224,7 @@ try {
     const command=ext.commands.get('latency').handler;
     await emit('session_start');
     assert(component);
-    assert.match(plain(component.render(300)[1]),/— \/ — \| — \/ — TPS \| Fast off/);
+    assert.match(plain(component.render(300)[1]),/— \/ — \| — \/ — E2E TPS \| Fast off/);
     await emit('turn_start'); clock=100;
     const payload={model:'test-model',input:[],service_tier:'priority'};
     const original=JSON.stringify(payload);
@@ -233,10 +247,10 @@ try {
     assert.equal(boundary.entries[1].data.sample.ttftMs,1200);
     assert.equal(boundary.entries[1].data.sample.generationMs,1000);
     entries.push(...boundary.entries); leaf+='x';
-    assert.match(plain(component.render(300)[1]),/1\.2s \/ 1\.2s \| 120 \/ 120 TPS/);
+    assert.match(plain(component.render(300)[1]),/1\.2s \/ 1\.2s \| 55 \/ 55 E2E TPS/);
     await emit('agent_end');
     await emit('session_start'); // reload/resume reconstruction
-    assert.match(plain(component.render(300)[1]),/1\.2s \/ 1\.2s \| 120 \/ 120 TPS/);
+    assert.match(plain(component.render(300)[1]),/1\.2s \/ 1\.2s \| 55 \/ 55 E2E TPS/);
     await command('status',ctx); assert.match(notices.at(-1).text,/1\/50/);
     assert.match(notices.at(-1).text,/TPS p50\/p95: 1 valid/);
     const fastCommand=loaded.extensions[1].commands.get('fast').handler;
@@ -247,13 +261,20 @@ try {
     await fastCommand('off',ctx);
     assert.match(plain(component.render(300)[1]),/\| Fast off/);
     await fastCommand('on',ctx);
-    console.log('PASS actual /fast toggle updates inline on/off state and survives reload without duplicate status');
+    const oldSelected=ctx.model;
+    ctx.model={...oldSelected,id:'gpt-6.1-sol'};
+    await fastCommand('ultra',ctx);
+    assert.match(plain(component.render(300)[1]),/\| Ultra requested/);
+    await emit('session_start');
+    assert.match(plain(component.render(300)[1]),/\| Ultra requested/);
+    ctx.model=oldSelected; await fastCommand('on',ctx);
+    console.log('PASS actual /fast Fast/Ultra state and restore without duplicate status');
     const physical=ctx.model;
     ctx.model={...physical,provider:'router',api:'pi-virtual',id:'auto'};
     await emit('model_select');
     let routeLine=plain(component.render(300)[1]);
     assert.match(routeLine,/auto.*high → test-model.*medium/);
-    assert.match(routeLine,/1\.2s \/ 1\.2s \| 120 \/ 120 TPS \| Fast on \(inactive\)/);
+    assert.match(routeLine,/1\.2s \/ 1\.2s \| 55 \/ 55 E2E TPS \| Fast on \(inactive\)/);
     const nativeRoute=Object.getOwnPropertyDescriptor(AgentSession.prototype,'routedModel').get.call({
       model:ctx.model,agent:{state:{messages:ctx.sessionManager.buildSessionProjection().messages}},
       _modelRuntime:{getPhysicalModel:ctx.modelRegistry.find},
@@ -272,7 +293,7 @@ try {
     assert.match(routeLine,/→ test-model.*medium/); assert(!routeLine.includes('failed-model'));
     await emit('session_start');
     assert.match(plain(component.render(300)[1]),/auto.*high → test-model.*medium/);
-    assert.match(plain(component.render(300)[1]),/1\.2s \/ 1\.2s \| 120 \/ 120 TPS/);
+    assert.match(plain(component.render(300)[1]),/1\.2s \/ 1\.2s \| 55 \/ 55 E2E TPS/);
     await emit('session_tree');
     assert.match(plain(component.render(300)[1]),/→ test-model.*medium/);
     ctx.model=physical; await emit('model_select');
@@ -285,13 +306,13 @@ try {
     await command('reset',ctx); assert.equal(entries.length,length);
     idle=true;
     await command('reset',ctx);
-    assert.match(plain(component.render(300)[1]),/— \/ — \| — \/ — TPS/);
+    assert.match(plain(component.render(300)[1]),/— \/ — \| — \/ — E2E TPS/);
     await emit('session_tree');
     await command('status',ctx); assert.match(notices.at(-1).text,/0\/50/);
     const savedModel=ctx.model;
     ctx.model={...model,id:'other-model'};
     await emit('model_select');
-    assert.match(plain(component.render(300)[1]),/— \/ — \| — \/ — TPS/);
+    assert.match(plain(component.render(300)[1]),/— \/ — \| — \/ — E2E TPS/);
     ctx.model=savedModel;
     await emit('session_shutdown'); assert.equal(component,undefined);
     const noTui={...ctx,mode:'rpc',ui:{notify:()=>{},setStatus:()=>{},setFooter:()=>{throw Error('RPC cannot set terminal footer');}}};

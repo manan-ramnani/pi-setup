@@ -1,11 +1,13 @@
 import { formatMetrics } from './metrics.mjs';
 
-// /fast publishes this status only while its session preference is enabled.
-// The inline label describes the toggle, not proof of the delivered service tier.
+// /fast publishes this status while Fast or Ultrafast is requested.
+// The inline label describes the preference, not proof of the delivered tier.
 export function fastLabel(footerData) {
   const status = footerData.getExtensionStatuses().get('chatgpt-fast');
   if (status === undefined) return 'Fast off';
-  return status === 'fast: inactive' ? 'Fast on (inactive)' : 'Fast on';
+  const ultra = status.startsWith('ultrafast:');
+  const label = ultra ? 'Ultra requested' : 'Fast on';
+  return status.endsWith(': inactive') ? `${label} (inactive)` : label;
 }
 
 // Preserve the native stats and right-aligned model without stripping ANSI.

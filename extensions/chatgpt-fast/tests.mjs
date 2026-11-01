@@ -45,7 +45,7 @@ await event('session_start');
 assert.equal(await event('before_provider_request',{payload}),undefined);
 assert.equal(entries.length,0);
 await command('',ctx);
-assert.equal(entries.at(-1).data.enabled,true);
+assert.deepEqual(entries.at(-1).data,{version:2,mode:'fast'});
 const fast=await event('before_provider_request',{payload});
 assert.equal(fast.service_tier,'priority');
 assert.deepEqual(fast.reasoning,payload.reasoning);
@@ -125,4 +125,78 @@ assert.match(notifications.at(-1).text,/Usage/);
 const noUi={...ctx,hasUI:false};
 await event('session_start',{},noUi);
 console.log('PASS selected-model/API matching, malformed payloads, legacy Codex route, busy guard and headless state');
+// Ultra is explicit, exact-model gated and survives versioned branch restore.
+const sol={...ctx,model:{...runtimeModel,id:'gpt-6.1-sol'}};
+const astra={...ctx,model:{...runtimeModel,id:'gpt-6-astra'}};
+const solPayload={...payload,model:sol.model.id};
+const astraPayload={...payload,model:astra.model.id};
+const unchangedUltra=entries.length;
+await command('ultra',ctx);
+assert.equal(entries.length,unchangedUltra,'Unsupported model cannot opt in');
+await command('ultrafast',sol);
+assert.deepEqual(entries.at(-1).data,{version:2,mode:'ultrafast'});
+assert.equal((await event('before_provider_request',{payload:solPayload},sol)).service_tier,'ultrafast');
+assert.equal(statuses.get('chatgpt-fast'),'ultrafast: on (requested)');
+assert.equal(await event('before_provider_request',{payload},sol),undefined,'Different-model payload untouched');
+await event('provider_stream_event',{provider:'openai',api:'openai-responses',model:sol.model.id,data:{response:{service_tier:'ultrafast'}}},sol);
+await command('status',sol);
+assert.match(notifications.at(-1).text,/requested ultrafast, server reported ultrafast/);
+await event('provider_stream_event',{provider:'other',api:'openai-responses',model:sol.model.id,data:{response:{service_tier:'default'}}},sol);
+assert.equal(statuses.get('chatgpt-fast'),'ultrafast: ultrafast','Unrelated receipt ignored');
+await event('provider_stream_event',{provider:'openai',api:'openai-responses',model:sol.model.id,data:{response:{service_tier:'default'}}},sol);
+await command('status',sol);
+assert.match(notifications.at(-1).text,/requested ultrafast, server reported default/);
+ext=await load(); command=ext.commands.get('fast').handler;
+await event('session_start',{},sol);
+assert.equal((await event('before_provider_request',{payload:solPayload},sol)).service_tier,'ultrafast');
+await event('model_select',{},ctx);
+assert.equal(statuses.get('chatgpt-fast'),'ultrafast: inactive');
+assert.equal(await event('before_provider_request',{payload}),undefined,'No ordinary-Fast fallback');
+assert.equal(await event('before_provider_request',{payload},legacy),undefined,'Ultra does not assume legacy support');
+oauth=false;
+assert.equal(await event('before_provider_request',{payload:solPayload},sol),undefined);
+oauth=true;
+const ultraEntries=entries.length;
+await command('ultra',{...sol,model:{...sol.model,baseUrl:'https://proxy.example/v1'}});
+assert.equal(entries.length,ultraEntries);
+idle=false; await command('off',sol); assert.equal(entries.length,ultraEntries); idle=true;
+await command('on',sol);
+assert.equal((await event('before_provider_request',{payload:solPayload},sol)).service_tier,'priority');
+await command('ultra',astra);
+assert.equal((await event('before_provider_request',{payload:astraPayload},astra)).service_tier,'ultrafast');
+await command('off',astra);
+assert.equal((await event('before_provider_request',{payload:astraPayload},astra)).service_tier,'default');
+await command('ultra',sol);
+await command('',sol);
+assert.equal(entries.at(-1).data.mode,'default','Bare toggle disables Ultra; it does not opt into Ultra');
+console.log('PASS Ultra model/auth/route gates, no fallback, receipt/fallback display, persistence and all mode transitions');
+
+// The installed HTTP/SSE transport must carry Ultra without extra routing headers.
+await command('ultra',sol);
+let ultraSent, ultraHeaders;
+const ultraStream=stream(sol.model,context,{
+  apiKey:'fake-subscription-token',
+  onPayload:async body=>event('before_provider_request',{payload:body},sol),
+  fetch:async(_url,options)=>{
+    ultraSent=JSON.parse(options.body); ultraHeaders=new Headers(options.headers);
+    const response={id:'mock_ultra',status:'completed',output:[],service_tier:'ultrafast',usage:{input_tokens:1,output_tokens:1,total_tokens:2,input_tokens_details:{cached_tokens:0}}};
+    return new Response('event: response.completed\ndata: '+JSON.stringify({type:'response.completed',response})+'\n\n',{status:200,headers:{'Content-Type':'text/event-stream'}});
+  },
+});
+const ultraMessage=await ultraStream.result();
+assert.notEqual(ultraMessage.stopReason,'error',ultraMessage.errorMessage);
+assert.equal(ultraSent.service_tier,'ultrafast');
+assert.equal(ultraSent.model,'gpt-6.1-sol');
+assert.equal(ultraHeaders.has('OpenAI-Service-Tier'),false);
+assert.deepEqual(solPayload.reasoning,payload.reasoning);
+assert(!('service_tier' in solPayload));
+entries.push({type:'custom',customType:'chatgpt-fast-mode',data:{version:1,enabled:true}});
+await event('session_tree',{},sol);
+assert.equal((await event('before_provider_request',{payload:solPayload},sol)).service_tier,'priority','Old boolean sessions migrate');
+entries.push({type:'custom',customType:'chatgpt-fast-mode',data:{version:2,mode:'invalid'}});
+await event('session_start',{},sol);
+assert.equal((await event('before_provider_request',{payload:solPayload},sol)).service_tier,'priority','Invalid entries ignored');
+entries.splice(0); await event('session_start',{},sol);
+assert.equal(await event('before_provider_request',{payload:solPayload},sol),undefined);
+console.log('PASS real mocked Ultra serialization, no obsolete alpha header, v1 migration, invalid entries and new-session reset');
 console.log('All fast-mode tests passed. No live request or subscription quota used.');

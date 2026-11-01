@@ -90,5 +90,11 @@ try {
   assert.deepEqual(manifest.dependencies,lock.packages[''].dependencies);
   assert.deepEqual(manifest.dependencies,versions.packages);
   for(const [name,version] of Object.entries(versions.packages)) assert.equal(lock.packages['node_modules/'+name].version,version);
+  const computerManifest=JSON.parse(await readFile(join(root,'config/computer-use/package.json'),'utf8'));
+  const computerLock=JSON.parse(await readFile(join(root,'config/computer-use/package-lock.json'),'utf8'));
+  assert.deepEqual(computerManifest.dependencies,computerLock.packages[''].dependencies);
+  for(const [name,version] of Object.entries(computerManifest.dependencies)) assert.equal(computerLock.packages['node_modules/'+name].version,version);
+  await mkdir(join(agent,'extensions/computer-use'),{recursive:true});
+  assert.throws(()=>preflight(agent,{},{}),/duplicate registrations/);
   console.log('PASS setup parsing, pins, settings preservation/idempotency, duplicate guards, dry-run credential isolation, skill hashing/customization and dependency snapshot');
 } finally { await rm(temp,{recursive:true,force:true}); }

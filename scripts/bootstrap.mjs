@@ -71,7 +71,7 @@ export function preflight(agent, existing, options) {
       }
     }
   }
-  for(const name of ['chatgpt-fast','latency-throughput','parallel']) {
+  for(const name of ['chatgpt-fast','latency-throughput','parallel','computer-use']) {
     if(existsSync(join(agent,'extensions',name)) || ['.ts','.js'].some(suffix=>existsSync(join(agent,'extensions',name+suffix)))) {
       throw new Error('Existing auto-discovered custom extension '+name+'. Use a separate --agent-dir or back up/remove the old copy first to prevent duplicate registrations.');
     }

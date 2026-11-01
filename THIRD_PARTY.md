@@ -39,4 +39,13 @@ Pi: https://github.com/earendil-works/pi (MIT).
 
 Parallel CLI / Python distribution: https://github.com/parallel-web/parallel-web-tools and https://pypi.org/project/parallel-web-tools/0.9.3/ . Installation is optional and subject to upstream terms. No CLI binary is included.
 
+Optional Vercel CLIs are separately pinned by `config/computer-use/package.json` and its npm integrity lockfile:
+
+| CLI | Version | Source | Licence |
+| --- | --- | --- | --- |
+| Agent Browser | 0.41.1 | https://github.com/vercel-labs/agent-browser | Apache-2.0 |
+| Agent Desktop | 1.0.2 | https://github.com/vercel-labs/agent-desktop | Apache-2.0 |
+
+The optional installer downloads their npm packages without lifecycle scripts and prepares only same-release native executables/helpers; Chrome for Testing is a separate explicit download governed by Google's terms. Upstream licence/notice files remain in the local packages. Original thin discovery skills in this repo load version-matched docs from those CLIs; no upstream skill catalogs are copied here.
+
 No third-party desktop app internals, Chrome login state, macOS binaries, or Codex MCP bridges are included.

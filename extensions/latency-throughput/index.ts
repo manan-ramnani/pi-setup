@@ -105,7 +105,7 @@ export default function latencyThroughput(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("latency", {
-    description: "Footer TTFT/TPS p50/p95 + Fast mode: /latency [status|reset|on|off|help]",
+    description: "Footer TTFT/E2E TPS p50/p95 + speed mode: /latency [status|reset|on|off|help]",
     getArgumentCompletions(prefix) {
       const options = ["status", "reset", "on", "off", "help"].filter(value => value.startsWith(prefix));
       return options.length ? options.map(value => ({value, label: value})) : null;
@@ -113,13 +113,13 @@ export default function latencyThroughput(pi: ExtensionAPI) {
     handler: async (args, ctx) => {
       const action = args.trim().toLowerCase() || "status";
       if (action === "help") {
-        ctx.ui.notify("TTFT is request-hook to first non-empty text/thinking/tool content (not headers). The footer shows nearest-rank p50/p95 over the last 50 successful calls per provider/API/model in this session branch. TPS shows p50/p95 of per-call generation rates within the same 50-call window. Each rate is reported output tokens / seconds from first content to stream completion; it excludes TTFT and can include reasoning tokens. Calls without valid output usage or a measurable interval are omitted from TPS only. Inline Fast on/off shows the /fast toggle; /fast status reports actual tier details. No per-chunk token guesses. /latency status, reset (all model samples), on, off (hide footer metrics; still collect). Existing historical calls cannot be timed retroactively. Hidden reasoning and client/event processing can affect observed timing.", "info");
+        ctx.ui.notify("TTFT is request-hook to first non-empty text/thinking/tool content (not headers or a true server first-token timestamp). Both pairs show nearest-rank p50/p95 over the last 50 successful measured calls per provider/API/model in this branch. E2E TPS is reported output tokens / full request seconds (TTFT + post-first-content time). Including TTFT avoids attributing pre-content hidden reasoning tokens only to the later visible stream. It is not GPU decode speed, a token-weighted average or whole-agent task speed. Missing/zero usage or a nonpositive/nonfinite full interval is omitted from TPS only. Inline speed labels show the /fast preference, not delivered tier; /fast status reports server observations. No per-chunk token guesses. /latency reset clears all buckets while idle; on/off controls visibility, not collection. Restored samples use the E2E formula too. Hidden reasoning, retries, network buffering and client/event processing affect observed timing.", "info");
         return;
       }
       if (action === "status") {
         const id = identity(ctx);
         const stats = telemetry.stats(id);
-        ctx.ui.notify(`Latency footer ${enabled ? "ON" : "OFF"}. ${id ? `${id.provider}/${id.model}` : "No model"}: ${formatMetrics(stats)}. TTFT p50/p95: ${stats.count}/50 successful samples; TPS p50/p95: ${stats.tpsCount} valid per-call rates from that same window. Timing samples follow the session branch and survive reload/resume.`, "info");
+        ctx.ui.notify(`Latency footer ${enabled ? "ON" : "OFF"}. ${id ? `${id.provider}/${id.model}` : "No model"}: ${formatMetrics(stats)}. TTFT p50/p95: ${stats.count}/50 successful samples; E2E TPS p50/p95: ${stats.tpsCount} valid per-call full-request rates from that same window. Timing samples follow the session branch and survive reload/resume.`, "info");
         return;
       }
       if (action === "reset") {

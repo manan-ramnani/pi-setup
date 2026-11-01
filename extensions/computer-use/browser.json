@@ -1,0 +1,6 @@
+{
+  "headed": false,
+  "noAutoDialog": true,
+  "contentBoundaries": true,
+  "maxOutput": 20000
+}

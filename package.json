@@ -14,10 +14,13 @@
     "extensions": [
       "./extensions/chatgpt-fast/index.ts",
       "./extensions/latency-throughput/index.ts",
-      "./extensions/parallel/index.ts"
+      "./extensions/parallel/index.ts",
+      "./extensions/computer-use/index.ts"
     ],
     "skills": [
-      "./skills/parallel-web"
+      "./skills/parallel-web",
+      "./skills/agent-browser",
+      "./skills/agent-desktop"
     ]
   },
   "peerDependencies": {

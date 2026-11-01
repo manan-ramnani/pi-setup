@@ -16,11 +16,14 @@ export function percentile(values, fraction) {
 }
 
 export function summarize(samples) {
-  // Percentiles of per-call generation rates, not token-weighted throughput.
-  // Use the same retained call window as TTFT; omit unavailable/nonfinite rates.
-  const rates = samples.map(s => s.outputTokens > 0 && s.generationMs > 0
-    ? s.outputTokens * 1000 / s.generationMs : undefined)
-    .filter(rate => rate !== undefined && Number.isFinite(rate));
+  // End-to-end output rate: include TTFT because output usage can include
+  // hidden reasoning generated before the first observable content. This is
+  // client-observed throughput, not decode speed or token-weighted throughput.
+  const rates = samples.map(s => {
+    const durationMs = s.ttftMs + s.generationMs;
+    return s.outputTokens > 0 && durationMs > 0 && Number.isFinite(durationMs)
+      ? s.outputTokens / (durationMs / 1000) : undefined;
+  }).filter(rate => rate !== undefined && Number.isFinite(rate));
   return {
     count: samples.length,
     p50: percentile(samples.map(s => s.ttftMs), 0.5),
@@ -33,7 +36,7 @@ export function summarize(samples) {
 export function formatMetrics(stats) {
   const seconds = ms => ms === undefined ? '—' : `${(ms/1000).toFixed(1)}s`;
   const speed = rate => rate === undefined || !Number.isFinite(rate) ? '—' : Math.round(rate).toString();
-  return `${seconds(stats.p50)} / ${seconds(stats.p95)} | ${speed(stats.tpsP50)} / ${speed(stats.tpsP95)} TPS`;
+  return `${seconds(stats.p50)} / ${seconds(stats.p95)} | ${speed(stats.tpsP50)} / ${speed(stats.tpsP95)} E2E TPS`;
 }
 
 export function isContentEvent(event) {

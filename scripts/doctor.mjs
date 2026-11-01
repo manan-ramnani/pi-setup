@@ -23,7 +23,7 @@ for(const [name,version] of Object.entries(versions.packages)) {
   check((settings.packages || []).some(entry=>(typeof entry==='string'?entry:entry.source)==='npm:'+name+'@'+version),'Pinned declaration: '+name);
 }
 check((settings.packages || []).some(entry=>(typeof entry==='string'?entry:entry.source)===root),'Custom package registration');
-for(const name of ['chatgpt-fast','latency-throughput','parallel']) {
+for(const name of ['chatgpt-fast','latency-throughput','parallel','computer-use']) {
   check(!existsSync(join(agent,'extensions',name)) && !['.ts','.js'].some(suffix=>existsSync(join(agent,'extensions',name+suffix))),'No duplicate auto-discovered '+name);
 }
 for(const item of readJson(join(root,'skills.lock.json')).skills) {
@@ -33,5 +33,11 @@ for(const item of readJson(join(root,'skills.lock.json')).skills) {
 for(const command of ['pandoc','xelatex','uv','git']) check(!!commandPath(command),'Optional executable: '+command,false);
 const parallel=process.env.PI_PARALLEL_CLI || commandPath(process.platform==='win32'?'parallel-cli.exe':'parallel-cli') || join(process.env.HOME || process.env.USERPROFILE || '', '.local/bin',process.platform==='win32'?'parallel-cli.exe':'parallel-cli');
 check(existsSync(parallel),'Parallel executable (set PI_PARALLEL_CLI if needed)',false);
-console.log('\nNo credentials read, OAuth refreshes, MCP connections, provider calls, or paid jobs. Run /login, /model, /parallel status, /fast status and /latency status interactively.');
+check(Number(process.versions.node.split('.')[0])>=24,'Optional Vercel browser runtime: Node 24+',false);
+for(const name of ['agent-browser','agent-desktop']) {
+  const manifest=join(agent,'tools/vercel/node_modules',name,'package.json');
+  const expected=readJson(join(root,'config/computer-use/package.json')).dependencies[name];
+  check(existsSync(manifest) && readJson(manifest).version===expected,'Optional managed '+name+'@'+expected+' (node scripts/setup-computer-use.mjs)',false);
+}
+console.log('\nNo credentials read, OAuth refreshes, MCP connections, provider calls, or paid jobs. Run /login, /model, /parallel status, /fast status, /latency status and /computer-use status interactively.');
 process.exitCode=failures?1:0;

@@ -1,0 +1,11 @@
+{
+  "name": "pi-setup-computer-use-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Optional pinned Vercel Labs native browser and desktop CLIs, isolated from Pi's own dependencies.",
+  "engines": { "node": ">=24.0.0" },
+  "dependencies": {
+    "agent-browser": "0.41.1",
+    "agent-desktop": "1.0.2"
+  }
+}
