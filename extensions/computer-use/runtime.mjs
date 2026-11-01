@@ -38,9 +38,11 @@ export async function prepareNativeTools(toolsDir,platform=process.platform,arch
 }
 
 export const TOOL_VERSIONS = { 'agent-browser': '0.41.1', 'agent-desktop': '1.0.2' };
+// tools/ is reserved for Pi's legacy extension migration, not CLI packages.
+export function toolDirectory(agentDir) { return join(agentDir,'computer-use','vercel'); }
 export function toolBinary(agentDir, name, platform=process.platform, arch=process.arch) {
   if (!(name in TOOL_VERSIONS)) throw new Error('Unknown managed tool.');
-  const root=join(agentDir,'tools','vercel','node_modules',name);
+  const root=join(toolDirectory(agentDir),'node_modules',name);
   const manifest=join(root,'package.json');
   if (!existsSync(manifest) || JSON.parse(readFileSync(manifest,'utf8')).version!==TOOL_VERSIONS[name])
     throw new Error('Install the pinned computer-use tools: node scripts/setup-computer-use.mjs --install-browser');

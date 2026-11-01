@@ -8,11 +8,12 @@ The setup was exported from Pi 1.1.0 on macOS. Publication excludes the macOS-on
 - Settings merge idempotency, unrelated preference preservation, duplicate/unrelated-package guards.
 - Dry run writes nothing and does not read/copy credentials.
 - Skill snapshot hashes and customization application.
-- ChatGPT Fast/Ultrafast request behaviour against a mocked OpenAI transport, exact-model gates, requested/returned tier distinction and version-1 preference restoration.
+- Exactly three ChatGPT speed choices (Standard, Fast, Ultrafast), hidden legacy aliases, picker cancellation/headless/busy safety, and Fast/Ultrafast request behaviour against a mocked OpenAI transport, exact-model gates, requested/returned tier distinction and version-1 preference restoration.
 - TTFT and end-to-end output TPS maths, nearest-rank percentiles, hidden-reasoning wait/single-burst cases, persistence, native footer layout/accounting, headless behaviour and isolated discovery.
 - Parallel argument arrays, safety/confirmation behavior, artifacts, errors and cancellation using Node as a portable fake CLI.
 - Computer-use Read/Browse/Edit/Full matrix, user-only branch-persisted selection, mode-specific model guidance, critical/headless behaviour and Full without confirmation prompts.
 - Fake native-tool argv/image/error/timeout/artifact handling, credential-free child environment, pinned managed binary/helper preparation, owned-session isolation/lifecycle and non-writing optional-installer preview.
+- Actual Pi startup-migration detection before/after moving managed CLI dependencies out of the reserved `tools/` directory; lossless/idempotent migration, managed backups, dry runs, collision refusal and preservation of unrelated legacy tools.
 - Heuristic publication secret/path/binary audit.
 
 The custom test harnesses use file URLs for dynamic imports and resolve Pi/dependencies locally or globally. Discovery tests use a temporary agent directory, never the author's real agent directory. Unix shebang execution is not required for the fake CLI.

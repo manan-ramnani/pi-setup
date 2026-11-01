@@ -6,7 +6,7 @@ This is executable extension code, not just preferences. Review it and the third
 
 ## Included
 
-- **chatgpt-fast**: per-session `/fast on|ultra|off` preference for eligible official ChatGPT OAuth routes. Ultrafast supports GPT-6 Astra and GPT-6.1 Sol on the current OpenAI Responses route. It requests a tier; it does not guarantee entitlement or performance.
+- **chatgpt-fast**: per-session `/fast standard|fast|ultrafast` preference for eligible official ChatGPT OAuth routes. Ultrafast supports GPT-6 Astra and GPT-6.1 Sol on the current OpenAI Responses route. It requests a tier; it does not guarantee entitlement or performance.
 - **latency-throughput**: native-footer integration showing client-observed TTFT and **end-to-end output TPS** p50/p95, plus the Fast/Ultra preference.
 - **parallel**: public search, fetch/extract, and confirmed paid asynchronous research through Parallel CLI 0.9.3.
 - **computer-use**: optional official Vercel Agent Browser MCP and native Agent Desktop tools, with user-selected Read/Browse/Edit/Full approval modes.
@@ -123,7 +123,7 @@ node scripts/setup-computer-use.mjs --dry-run
 node scripts/setup-computer-use.mjs --install-browser
 ```
 
-The optional lockfile pins **agent-browser 0.41.1** and **agent-desktop 1.0.2** under `<agent-dir>/tools/vercel`. `--install-browser` downloads Chrome for Testing; omit it if that browser is already installed. Add `--agent-dir PATH` for another profile. This does not grant OS permissions or inspect apps.
+The optional lockfile pins **agent-browser 0.41.1** and **agent-desktop 1.0.2** under `<agent-dir>/computer-use/vercel`. `--install-browser` downloads Chrome for Testing; omit it if that browser is already installed. Add `--agent-dir PATH` for another profile. This does not grant OS permissions or inspect apps.
 
 After `/reload`, the user chooses:
 
@@ -134,6 +134,8 @@ After `/reload`, the user chooses:
 | `/computer-use edit` | **Default:** normal task-authorised edits/clicks; confirm known critical actions. |
 | `/computer-use full` | Task-authorised agency, including clicks, edits, saving and physical input, with **no tool-level approval prompts** for critical actions. |
 | `/computer-use status` | Availability, selected mode and browser session. |
+
+If upgrading the initial layout, run `node scripts/setup-computer-use.mjs --migrate-only`: it moves this installer's marked `tools/vercel` directory and its managed backups, preserves installed dependencies, refuses collisions/unmanaged directories, and removes `tools/` only when empty. This fixes Pi's legacy-tools startup warning without suppressing it or moving unrelated tools. Reload Pi afterwards.
 
 The model receives mode-specific instructions; only the user can change modes. Mode follows the session branch and survives reload/resume; a new session starts in Edit. Full does not override OS permissions, task scope, higher-priority/project restrictions or untrusted-content rules. In Edit, the model must ask before consequential purchases, messages, deletions or submissions: the gate cannot infer every generic click's meaning. These are cooperative controls on the Vercel tools, **not an OS sandbox** or a global gate over Bash/Codex bridges. Never bypass a policy refusal through another backend.
 
@@ -181,8 +183,9 @@ Inside Pi:
 /computer-use status
 
 # After selecting OpenAI / GPT-6.1 Sol or GPT-6 Astra with ChatGPT OAuth:
-/fast ultra
-# Ordinary Fast: /fast on; Standard: /fast off
+/fast
+# Picker: Standard, Fast, Ultrafast; cancelling changes nothing.
+# Direct: /fast standard, /fast fast, /fast ultrafast
 ```
 
 Also exercise agent spawning, oracle, task persistence, ask-user dialogs, and preview export after authenticating. Offline tests verify the custom behavior without provider calls, account entitlement checks, or subscription quota. Optional Parallel `--live` tests make two public requests and may consume credits; they are never part of the default suite.

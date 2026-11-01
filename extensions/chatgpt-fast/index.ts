@@ -8,6 +8,9 @@ const FAST_TIER = "priority"; // fast/priority remain aliases for ordinary Fast.
 const ULTRA_MODELS = new Set(["gpt-6-astra", "gpt-6.1-sol"]);
 
 type Mode = "default" | "fast" | "ultrafast";
+const SPEED_CHOICES = ["standard", "fast", "ultrafast"];
+const MODE_LABELS: Record<Mode, string> = { default: "Standard", fast: "Fast", ultrafast: "Ultrafast" };
+const COMMAND_MODES: Record<string, Mode> = { standard: "default", fast: "fast", ultrafast: "ultrafast", off: "default", on: "fast", ultra: "ultrafast" };
 type Preference = { version: 2; mode: Mode };
 type Receipt = { provider: string; model: string; requested: string; returned?: string };
 
@@ -93,34 +96,47 @@ export default function chatgptFastExtension(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("fast", {
-    description: "ChatGPT speed: /fast [on|ultra|off|status|help] (per session)",
+    description: "Choose ChatGPT speed: /fast [standard|fast|ultrafast] (status/help available)",
     getArgumentCompletions(prefix) {
-      const options = ["on", "ultra", "ultrafast", "off", "status", "help"].filter(value => value.startsWith(prefix));
-      return options.length ? options.map(value => ({ value, label: value })) : null;
+      // Three distinct tiers; aliases remain accepted but never appear as tiers.
+      const options = (prefix ? [...SPEED_CHOICES, "status", "help"] : SPEED_CHOICES).filter(value => value.startsWith(prefix));
+      return options.length ? options.map(value => ({ value, label: value === "status" ? "Status (inspect requested/delivered tier)" : value === "help" ? "Help (usage and eligibility)" : MODE_LABELS[COMMAND_MODES[value]] })) : null;
     },
     handler: async (args, ctx) => {
-      const action = args.trim().toLowerCase();
+      let action = args.trim().toLowerCase();
       if (action === "help") {
-        ctx.ui.notify("/fast toggles ordinary Fast/off; /fast on requests priority/Fast; /fast ultra (or ultrafast) requests Ultrafast; /fast off requests standard; /fast status reports requested vs server-reported tier. Ultrafast supports GPT-6 Astra and GPT-6.1 Sol on the current official OpenAI Responses OAuth route. Pro 500 uses included allowance at 8x Standard, then credits at 6x; ordinary Fast uses included allowance at 2.5x. These are usage, not speed guarantees. New sessions have no override; preferences follow this branch through reload/resume. No API-key/proxy/other-provider requests, model/thinking/auth/transport changes, automatic fallback or entitlement claim.", "info");
+        ctx.ui.notify("/fast opens three choices: Standard, Fast and Ultrafast. Or use /fast standard, /fast fast, /fast ultrafast; /fast status reports requested vs server-reported tier. Standard uses default service; Fast requests priority service. For supported subscription models, Fast consumes included allowance at 2.5x Standard; purchased credits at 2x. Ultrafast consumes included allowance at 8x and credits at 6x, on eligible plans with GPT-6 Astra or GPT-6.1 Sol on the current official OpenAI Responses OAuth route. Usage multipliers are not speed guarantees. Old on/off/ultra commands remain hidden aliases, not extra tiers. New sessions have no override; preferences follow this branch through reload/resume. No API-key/proxy/other-provider requests, model/thinking/auth/transport changes, automatic fallback or entitlement claim.", "info");
         return;
       }
       if (action === "status") {
-        const desired = preference?.mode === "ultrafast" ? "ULTRAFAST" : preference?.mode === "fast" ? "ON" : "OFF";
+        const desired = preference ? MODE_LABELS[preference.mode] : "provider default (no override)";
         const active = eligible(ctx) ? "eligible ChatGPT subscription route" : "inactive: unsupported model/auth/route for this preference";
         const tier = receipt?.returned
           ? ` Last request: requested ${receipt.requested}, server reported ${receipt.returned}.`
           : receipt ? ` Last request requested ${receipt.requested}; no server tier reported.` : " No tier observation in this runtime yet.";
-        ctx.ui.notify(`Fast mode ${desired} for this session (${active}).${tier}`, "info");
+        ctx.ui.notify(`ChatGPT speed: ${desired} for this session (${active}).${tier}`, "info");
         return;
       }
-      if (!["", "on", "ultra", "ultrafast", "off"].includes(action)) {
-        ctx.ui.notify("Usage: /fast [on|ultra|off|status|help]", "warning"); return;
+      if (action && !Object.hasOwn(COMMAND_MODES, action)) {
+        ctx.ui.notify("Usage: /fast [standard|fast|ultrafast|status|help]", "warning"); return;
       }
       if (!ctx.isIdle()) {
         ctx.ui.notify("Wait for the current response to finish before changing fast mode. An in-flight request cannot change tier.", "warning"); return;
       }
-      const mode: Mode = action === "ultra" || action === "ultrafast" ? "ultrafast"
-        : action === "on" || (action === "" && (!preference || preference.mode === "default")) ? "fast" : "default";
+      if (!action) {
+        if (!ctx.hasUI) {
+          ctx.ui.notify("Choose explicitly: /fast standard, /fast fast or /fast ultrafast. Current preference unchanged.", "info"); return;
+        }
+        const labels = ["Standard", "Fast", "Ultrafast"];
+        const current = preference ? MODE_LABELS[preference.mode] : "provider default (no override)";
+        const selected = await ctx.ui.select(`ChatGPT speed — current: ${current}`, labels);
+        if (!selected || !labels.includes(selected)) return;
+        action = SPEED_CHOICES[labels.indexOf(selected)];
+        if (!ctx.isIdle()) {
+          ctx.ui.notify("Speed preference unchanged: a response started while the selector was open.", "warning"); return;
+        }
+      }
+      const mode: Mode = COMMAND_MODES[action];
       if (mode !== "default" && !eligible(ctx, mode)) {
         ctx.ui.notify(mode === "ultrafast"
           ? "Ultrafast wasn't enabled: select GPT-6 Astra or GPT-6.1 Sol on the official OpenAI Responses route using your ChatGPT login. OpenAI must grant your plan/workspace access. No model/auth changes or ordinary-Fast fallback were made."
@@ -132,10 +148,10 @@ export default function chatgptFastExtension(pi: ExtensionAPI) {
       pi.appendEntry(ENTRY, preference);
       paint(ctx);
       ctx.ui.notify(mode === "ultrafast"
-        ? "Ultrafast requested for subsequent eligible calls in this session. Pro 500 consumes included usage at 8x Standard, then credits at 6x. OpenAI controls access and actual tier; model/thinking/transport unchanged. Use /fast status to inspect the server-reported tier."
+        ? "Ultrafast requested for subsequent eligible calls in this session. Eligible included usage is consumed at 8x Standard, purchased credits at 6x. OpenAI controls access and actual tier; model/thinking/transport unchanged. Use /fast status to inspect the server-reported tier."
         : mode === "fast"
-          ? "Fast mode ON for this session. Subsequent eligible ChatGPT requests ask for priority/Fast service. Model and thinking level are unchanged; OpenAI controls entitlement, actual service, and usage limits."
-          : "Fast mode OFF for this session. Subsequent eligible ChatGPT requests ask for standard service.", "info");
+          ? "Fast requested for this session: priority service, 2.5x included usage or 2x purchased credits for supported subscription models. Model/thinking unchanged; OpenAI controls entitlement and actual tier."
+          : "Standard requested for this session. Subsequent eligible ChatGPT requests ask for default service.", "info");
     },
   });
 }

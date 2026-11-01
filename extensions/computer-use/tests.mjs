@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { piImport } from '../../scripts/lib.mjs';
 import { MODES, PREFIX, browserRisk, desktopRisk, decision, guidance, screenshotArgs, safeBrowserURL } from './policy.mjs';
-import { TOOL_VERSIONS, cleanEnvironment, toolBinary, prepareNativeTools, browserSession, browserWasUsed } from './runtime.mjs';
+import { TOOL_VERSIONS, cleanEnvironment, toolBinary, prepareNativeTools, toolDirectory, browserSession, browserWasUsed } from './runtime.mjs';
 import { createHash } from 'node:crypto';
-import { parseComputerOptions, setupComputerUse } from '../../scripts/setup-computer-use.mjs';
+import { parseComputerOptions, setupComputerUse, migrateLegacyComputerTools } from '../../scripts/setup-computer-use.mjs';
 const { loadExtensions }=await piImport('dist/core/extensions/loader.js');
 
 for(const mode of MODES) assert.equal(decision(mode,{level:'read'}),'allow');
@@ -55,6 +55,36 @@ const screenshots=[];
 try {
   const agent=join(temp,'agent'), extensionPath=join(temp,'computer-use');
   await mkdir(agent);
+  const legacyAgent=join(temp,'legacy-agent'), oldTools=join(legacyAgent,'tools');
+  const oldInstall=join(oldTools,'vercel'), oldBackup=join(oldTools,'vercel-backup-123');
+  for(const dir of [oldInstall,oldBackup]) {
+    await mkdir(join(dir,'node_modules'),{recursive:true});
+    await writeFile(join(dir,'package.json'),JSON.stringify({name:'pi-setup-computer-use-tools'}));
+    await writeFile(join(dir,'node_modules','preserved.txt'),'installed data');
+  }
+  process.env.PI_CODING_AGENT_DIR=legacyAgent;
+  const {getAgentDir}=await piImport('dist/config.js');
+  assert.equal(getAgentDir(),legacyAgent,'Never run migration detection against the real profile');
+  const {runMigrations}=await piImport('dist/migrations.js');
+  assert(runMigrations(temp).deprecationWarnings.some(x=>x.includes('Global tools/')));
+  assert.equal((await migrateLegacyComputerTools(legacyAgent,{dryRun:true})).length,2);
+  assert.equal(await readFile(join(oldInstall,'node_modules','preserved.txt'),'utf8'),'installed data');
+  assert.equal((await migrateLegacyComputerTools(legacyAgent)).length,2);
+  assert.equal(await readFile(join(toolDirectory(legacyAgent),'node_modules','preserved.txt'),'utf8'),'installed data');
+  assert.equal(await readFile(join(legacyAgent,'computer-use','vercel-backup-123','node_modules','preserved.txt'),'utf8'),'installed data');
+  assert(!runMigrations(temp).deprecationWarnings.some(x=>x.includes('Global tools/')),'Actual Pi startup no longer sees deprecated tools');
+  assert.deepEqual(await migrateLegacyComputerTools(legacyAgent),[],'Migration is idempotent');
+  await mkdir(oldInstall,{recursive:true});
+  await writeFile(join(oldInstall,'package.json'),JSON.stringify({name:'unrelated'}));
+  await assert.rejects(migrateLegacyComputerTools(legacyAgent),/unmanaged/);
+  await writeFile(join(oldInstall,'package.json'),JSON.stringify({name:'pi-setup-computer-use-tools'}));
+  await assert.rejects(migrateLegacyComputerTools(legacyAgent),/already exists/);
+  await rm(oldInstall,{recursive:true});
+  await writeFile(join(oldTools,'unrelated-tool.ts'),'preserve unrelated code');
+  await migrateLegacyComputerTools(legacyAgent);
+  assert.equal(await readFile(join(oldTools,'unrelated-tool.ts'),'utf8'),'preserve unrelated code');
+  assert(runMigrations(temp).deprecationWarnings.some(x=>x.includes('Global tools/')),'Do not suppress legitimate unrelated-tool warnings');
+  console.log('PASS real Pi migration warning detection, lossless managed-directory migration, dry-run, backups, collision refusal and unrelated-tool preservation');
   process.env.PI_CODING_AGENT_DIR=agent;
   await cp(dirname(fileURLToPath(import.meta.url)),extensionPath,{recursive:true});
   // Replace only the disposable fixture launcher. Never execute real GUI tools.
@@ -71,7 +101,7 @@ else{
 }
 `);
   for(const [name,version] of Object.entries(TOOL_VERSIONS)) {
-    const packageDir=join(agent,'tools','vercel','node_modules',name);
+    const packageDir=join(toolDirectory(agent),'node_modules',name);
     await mkdir(join(packageDir,'bin'),{recursive:true});
     await writeFile(join(packageDir,'package.json'),JSON.stringify({name,version}));
     const filename=`${name}-${process.platform}-${process.arch}${process.platform==='win32'?'.exe':''}`;
@@ -84,7 +114,7 @@ else{
       await writeFile(file+'.sha256',createHash('sha256').update('fake helper').digest('hex'));
     }
   }
-  await prepareNativeTools(join(agent,'tools','vercel'));
+  await prepareNativeTools(toolDirectory(agent));
   assert.throws(()=>toolBinary(agent,'unknown'),/Unknown/);
   const entries=[],notices=[],statuses=new Map();
   let idle=true,confirm=false,confirmations=0;
@@ -172,6 +202,8 @@ else{
   assert.notEqual(browserSession(),ownedSession,'New/resumed/forked task gets a fresh browser after owned cleanup');
   assert(!browserWasUsed(ownedSession));
   assert.equal(parseComputerOptions(['--dry-run']).dryRun,true);
+  assert.equal(parseComputerOptions(['--migrate-only']).migrateOnly,true);
+  assert.throws(()=>parseComputerOptions(['--migrate-only','--install-browser']),/cannot install/);
   assert.throws(()=>parseComputerOptions(['--unknown']),/Usage/);
   const oldLog=console.log;console.log=()=>{};
   try{await setupComputerUse({dryRun:true,agentDir:join(temp,'dry')});}finally{console.log=oldLog;}

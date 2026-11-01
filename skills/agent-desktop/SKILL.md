@@ -43,6 +43,6 @@ On macOS, Accessibility is required; screenshots also need Screen Recording. `ag
 
 Windows interaction depends on the target app's integrity level. Linux requires a graphical user session, AT-SPI and appropriate X11/Wayland facilities; installing the CLI alone does not establish those. WSL without a compatible GUI session is not native Windows desktop control. Read the bundled platform guide, not assumptions from another OS.
 
-The managed binaries live under the agent directory's `tools/vercel`, with exact versions from the portable manifest. Pi invokes the native binary directly, avoiding npm/Node launcher overhead. Desktop ref/session state uses its own private directory. Provider/broker keys and inherited browser/desktop overrides are not forwarded.
+The managed binaries live under the agent directory's `computer-use/vercel`, with exact versions from the portable manifest. Pi invokes the native binary directly, avoiding npm/Node launcher overhead. Desktop ref/session state uses its own private directory. Provider/broker keys and inherited browser/desktop overrides are not forwarded.
 
 Official source: https://github.com/vercel-labs/agent-desktop .

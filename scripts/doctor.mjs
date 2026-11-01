@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { agentDirectory, versions, readJson, capture, commandPath, nodeSupported, root } from './lib.mjs';
+import { toolDirectory } from '../extensions/computer-use/runtime.mjs';
 
 const args=process.argv.slice(2);
 let agent;
@@ -35,7 +36,7 @@ const parallel=process.env.PI_PARALLEL_CLI || commandPath(process.platform==='wi
 check(existsSync(parallel),'Parallel executable (set PI_PARALLEL_CLI if needed)',false);
 check(Number(process.versions.node.split('.')[0])>=24,'Optional Vercel browser runtime: Node 24+',false);
 for(const name of ['agent-browser','agent-desktop']) {
-  const manifest=join(agent,'tools/vercel/node_modules',name,'package.json');
+  const manifest=join(toolDirectory(agent),'node_modules',name,'package.json');
   const expected=readJson(join(root,'config/computer-use/package.json')).dependencies[name];
   check(existsSync(manifest) && readJson(manifest).version===expected,'Optional managed '+name+'@'+expected+' (node scripts/setup-computer-use.mjs)',false);
 }

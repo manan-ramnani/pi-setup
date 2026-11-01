@@ -17,12 +17,14 @@ const runtimeModel = {
 };
 let oauth = true;
 let idle = true;
+let selection;
+let shownChoices;
 const ctx = {
   model: runtimeModel, hasUI: true,
   isIdle: () => idle,
   modelRegistry: {isUsingOAuth: () => oauth},
   sessionManager: {getBranch: () => entries},
-  ui: {notify: (text,level) => notifications.push({text,level}),setStatus: (key,value) => statuses.set(key,value)},
+  ui: {notify: (text,level) => notifications.push({text,level}),setStatus: (key,value) => statuses.set(key,value),select: async (_title,options) => { shownChoices=options;return selection; } },
 };
 async function load() {
   const r=await loadExtensions([join(dirname(fileURLToPath(import.meta.url)),'index.ts')],process.cwd());
@@ -44,6 +46,13 @@ const payload = {model:'test-model',input:[],reasoning:{effort:'high'},tools:[{t
 await event('session_start');
 assert.equal(await event('before_provider_request',{payload}),undefined);
 assert.equal(entries.length,0);
+assert.deepEqual(ext.commands.get('fast').getArgumentCompletions('').map(x=>x.value),['standard','fast','ultrafast']);
+assert.deepEqual(ext.commands.get('fast').getArgumentCompletions('ul').map(x=>x.value),['ultrafast']);
+assert.equal(ext.commands.get('fast').getArgumentCompletions('on'),null,'Compatibility aliases are hidden');
+await command('',ctx);
+assert.deepEqual(shownChoices,['Standard','Fast','Ultrafast']);
+assert.equal(entries.length,0,'Opening/cancelling the selector must not change speed or opt in');
+selection='Fast';
 await command('',ctx);
 assert.deepEqual(entries.at(-1).data,{version:2,mode:'fast'});
 const fast=await event('before_provider_request',{payload});
@@ -51,7 +60,7 @@ assert.equal(fast.service_tier,'priority');
 assert.deepEqual(fast.reasoning,payload.reasoning);
 assert.equal(fast.tools,payload.tools);
 assert(!('service_tier' in payload),'Original payload not mutated');
-console.log('PASS /fast toggle adds priority without changing model, reasoning, tools, or input');
+console.log('PASS three-tier completion/picker, cancellation safety and explicit Fast selection without changing model, reasoning, tools or input');
 await event('provider_stream_event',{provider:'openai',api:'openai-responses',model:'test-model',data:{type:'response.completed',response:{service_tier:'default'}}});
 await command('status',ctx);
 assert.match(notifications.at(-1).text,/server reported default/);
@@ -77,6 +86,10 @@ assert.equal(sent.service_tier,'priority');
 assert.equal(sent.model,'test-model');
 console.log('PASS installed OpenAI transport serializes service_tier=priority (mocked HTTP only)');
 
+await command('standard',ctx);
+assert.equal((await event('before_provider_request',{payload})).service_tier,'default');
+await command('fast',ctx);
+assert.equal((await event('before_provider_request',{payload})).service_tier,'priority');
 await command('off',ctx);
 assert.equal((await event('before_provider_request',{payload})).service_tier,'default');
 await command('on',ctx);
@@ -124,6 +137,13 @@ await command('invalid',ctx);
 assert.match(notifications.at(-1).text,/Usage/);
 const noUi={...ctx,hasUI:false};
 await event('session_start',{},noUi);
+const beforePicker=entries.length;
+await command('',noUi);
+assert.equal(entries.length,beforePicker,'Headless bare command cannot choose a paid tier');
+await command('',{...ctx,ui:{...ctx.ui,select:async()=>{idle=false;return 'Fast';}}});
+assert.equal(entries.length,beforePicker,'Busy change while selector open is refused');idle=true;
+await command('help',ctx);
+assert.match(notifications.at(-1).text,/2\.5x Standard; purchased credits at 2x/);
 console.log('PASS selected-model/API matching, malformed payloads, legacy Codex route, busy guard and headless state');
 // Ultra is explicit, exact-model gated and survives versioned branch restore.
 const sol={...ctx,model:{...runtimeModel,id:'gpt-6.1-sol'}};
@@ -167,8 +187,10 @@ assert.equal((await event('before_provider_request',{payload:astraPayload},astra
 await command('off',astra);
 assert.equal((await event('before_provider_request',{payload:astraPayload},astra)).service_tier,'default');
 await command('ultra',sol);
-await command('',sol);
-assert.equal(entries.at(-1).data.mode,'default','Bare toggle disables Ultra; it does not opt into Ultra');
+selection=undefined;await command('',sol);
+assert.equal(entries.at(-1).data.mode,'ultrafast','Cancelling preserves the selected tier');
+selection='Standard';await command('',sol);
+assert.equal(entries.at(-1).data.mode,'default','Picker changes tier only after an explicit selection');
 console.log('PASS Ultra model/auth/route gates, no fallback, receipt/fallback display, persistence and all mode transitions');
 
 // The installed HTTP/SSE transport must carry Ultra without extra routing headers.

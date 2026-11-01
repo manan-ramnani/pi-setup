@@ -6,18 +6,21 @@ Per-session speed preference for official ChatGPT OAuth requests. This extension
 
 ```text
 /reload
-/fast ultra
+/fast
+# Or choose directly: /fast standard, /fast fast, /fast ultrafast
 /fast status
 ```
 
 | Command | Behaviour |
 | --- | --- |
-| `/fast` | Toggle ordinary Fast/off; if Ultra is selected, turn it off. Never opts into Ultra implicitly. |
-| `/fast on` | Request ordinary Fast (`service_tier: "priority"`). |
-| `/fast ultra` or `/fast ultrafast` | Request Ultrafast (`service_tier: "ultrafast"`). |
-| `/fast off` | Explicitly request Standard (`service_tier: "default"`). |
+| `/fast` | Open a picker containing exactly Standard, Fast and Ultrafast. Cancelling changes nothing. |
+| `/fast standard` | Explicitly request Standard (`service_tier: "default"`). |
+| `/fast fast` | Request Fast (`service_tier: "priority"`). |
+| `/fast ultrafast` | Request Ultrafast (`service_tier: "ultrafast"`). |
 | `/fast status` | Report preference and last requested/server-reported tier. |
 | `/fast help` | Explain scope, usage implications and limitations. |
+
+`/fast on`, `/fast off` and `/fast ultra` remain accepted as hidden compatibility aliases for Fast, Standard and Ultrafast. They are not extra tiers. Empty-argument autocomplete shows only the three speed choices; `status` and `help` are separate utilities. Without an interactive UI, bare `/fast` explains the explicit commands rather than changing usage. Opening the picker, cancelling it, or reloading never changes the selected tier.
 
 Use `/model` to select **OpenAI / GPT-6.1 Sol** or **OpenAI / GPT-6 Astra**, authenticated with ChatGPT, before selecting Ultra. Commands that change the preference require idle; an already-sent request cannot change tier.
 
@@ -59,6 +62,6 @@ With the `latency-throughput` footer, the status is moved inline: `Ultra request
 node extensions/chatgpt-fast/tests.mjs
 ```
 
-Tests use Pi's real extension loader and OpenAI transport with mocked HTTP. They cover Ultra serialization, preservation of input/tools/reasoning, all mode transitions, supported model/auth/endpoint guards, unsupported-mode inactivity, no fallback, v1 migration, branch/reload/new-session state, receipt/default handling and busy protection. No credentials or real inference are used.
+Tests use Pi's real extension loader and OpenAI transport with mocked HTTP. They cover the exact three-choice picker/autocomplete, cancellation/headless/busy safety, canonical commands and hidden compatibility aliases, Ultra serialization, preservation of input/tools/reasoning, all mode transitions, supported model/auth/endpoint guards, unsupported-mode inactivity, no fallback, v1 migration, branch/reload/new-session state, receipt/default handling and busy protection. No credentials or real inference are used.
 
-Reload an existing Pi session with `/reload`; then opt in with `/fast ultra`. Merely changing the files does not activate Ultra or prove account entitlement. Tests passed on the pinned Pi 1.1.0 test host and installed Pi 1.4.0; live entitlement/speed remain unverified.
+Reload an existing Pi session with `/reload`; then choose a tier with `/fast` or opt in explicitly with `/fast ultrafast`. Merely changing the files does not activate Ultra or prove account entitlement. Tests passed on the pinned Pi 1.1.0 test host and installed Pi 1.4.0; live entitlement/speed remain unverified.
