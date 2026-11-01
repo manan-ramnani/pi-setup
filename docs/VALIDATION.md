@@ -27,7 +27,7 @@ WSL is expected to behave like Linux but is not itself a hosted CI target. Live 
 
 The initial publication runs the offline suites, restores pinned upstream skill snapshots into a temporary destination and verifies their hashes, installs the third-party npm snapshot in an isolated agent directory, and checks registration without making provider calls.
 
-The [latest published-revision CI run](https://github.com/manan-ramnani/pi-setup/actions/runs/38317648385) passed all three OS jobs on 13 October 2026 IST. That result predates the Ultra/E2E/computer-use changes. Check the [current revision's Actions run](https://github.com/manan-ramnani/pi-setup/actions) for the expanded matrix.
+The [latest published-revision CI run](https://github.com/manan-ramnani/pi-setup/actions/runs/38317648385) passed all three OS jobs on 13 October 2026 IST. That result predates the Ultra/E2E/computer-use changes. The [first expanded-matrix run](https://github.com/manan-ramnani/pi-setup/actions/runs/41325006250) for `386c9ea` could not start any job: all six targets ended before test steps/logs were created due to an account/service-side runner blocker. This is neither a passing test run nor evidence of a test-code failure. Hosted Node 22/24 and Windows/Linux/macOS execution remains unverified for this update; rerun after the external blocker is resolved. Check [current Actions](https://github.com/manan-ramnani/pi-setup/actions) rather than relying on the older green run.
 
 ## 1 November 2026 extension update
 
